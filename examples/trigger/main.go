@@ -98,7 +98,7 @@ func (m model) Init() tea.Cmd {
 	return m.toastManager.Push(
 		"Welcome to the toast demo!",
 		toast.Info,
-		3*time.Second)
+		1*time.Second)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

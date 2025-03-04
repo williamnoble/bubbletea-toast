@@ -18,10 +18,6 @@ type toast struct {
 	visible  bool
 }
 
-type msgExpired struct {
-	ID string
-}
-
 func new(id string, message string, toastType Type, duration time.Duration) toast {
 	return toast{
 		ID:       id,

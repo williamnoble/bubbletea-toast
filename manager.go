@@ -3,6 +3,7 @@ package toast
 import (
 	"fmt"
 	"github.com/charmbracelet/bubbles/timer"
+	"slices"
 	"strings"
 	"time"
 
@@ -26,6 +27,10 @@ type msgPushed struct {
 }
 
 type msgDismissAll struct{}
+
+type msgExpired struct {
+	ID string
+}
 
 type Type int
 
@@ -122,11 +127,14 @@ func (m Manager) Update(msg tea.Msg) (Manager, tea.Cmd) {
 
 	case msgPushed:
 		m.toasts = append(m.toasts, msg.Toast)
+		// initialize the toast (child)
 		commands = append(commands, msg.Toast.init())
 
 	case timer.TickMsg, timer.TimeoutMsg:
 		for i, t := range m.toasts {
 			var cmd tea.Cmd
+			// explicitly call the toast(child's) update method with the message passed
+			// to the parent, record any command resulting from update call.
 			m.toasts[i], cmd = t.update(msg)
 			if cmd != nil {
 				commands = append(commands, cmd)
@@ -134,12 +142,9 @@ func (m Manager) Update(msg tea.Msg) (Manager, tea.Cmd) {
 		}
 
 	case msgExpired:
-		for i, t := range m.toasts {
-			if t.ID == msg.ID {
-				m.toasts = append(m.toasts[:i], m.toasts[i+1:]...)
-				break
-			}
-		}
+		m.toasts = slices.DeleteFunc(m.toasts, func(t toast) bool {
+			return t.ID == msg.ID
+		})
 
 	case msgDismissAll:
 		m.toasts = []toast{}
@@ -152,16 +157,15 @@ func (m Manager) View() string {
 	visibleCount := 0
 	var visibleToasts []string
 
-	for _, t := range m.toasts {
-		if t.visible {
+	for _, toast := range m.toasts {
+		if toast.visible {
 			visibleCount++
 			var customToastStyle *CustomToastStyle
-			if style, exists := m.customStyles[t.Type]; exists {
+			if style, exists := m.customStyles[toast.Type]; exists {
 				customToastStyle = &style
 			}
-
 			if visibleCount <= m.maxToasts {
-				visibleToasts = append(visibleToasts, t.view(customToastStyle))
+				visibleToasts = append(visibleToasts, toast.view(customToastStyle))
 			} else {
 				break
 			}
@@ -174,7 +178,7 @@ func (m Manager) View() string {
 
 	joined := strings.Join(visibleToasts, "\n")
 
-	var view string
+	//var view string
 	var alignment lipgloss.Position
 	switch m.position {
 	case TopLeft, BottomLeft:
@@ -185,6 +189,6 @@ func (m Manager) View() string {
 		alignment = lipgloss.Right
 	}
 
-	view = lipgloss.NewStyle().Align(alignment).Render(joined)
+	view := lipgloss.NewStyle().Align(alignment).Render(joined)
 	return view
 }

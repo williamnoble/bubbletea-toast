@@ -83,10 +83,59 @@ func TestManagerExpiry(t *testing.T) {
 	timeoutMsg := timer.TimeoutMsg{}
 	m, _ = m.Update(timeoutMsg)
 
-	// Head room for message processing
+	// Headroom for message processing
 	time.Sleep(10 * time.Millisecond)
 
 	if view := m.View(); view != "" {
 		t.Error("Expected empty view after toast expiry")
+	}
+}
+
+func TestManagerHandleExpiredMsg(t *testing.T) {
+	m := NewManager()
+	toast1 := new("1", "Test Message 1", Info, 1*time.Second)
+	toast2 := new("2", "Test Message 2", Warning, 2*time.Second)
+	toast3 := new("3", "Test Message 3", Error, 3*time.Second)
+
+	// Add toasts to manager
+	m, _ = m.Update(msgPushed{Toast: toast1})
+	m, _ = m.Update(msgPushed{Toast: toast2})
+	m, _ = m.Update(msgPushed{Toast: toast3})
+
+	// Verify we have 3 toasts
+	if len(m.toasts) != 3 {
+		t.Errorf("Expected 3 toasts, got %d", len(m.toasts))
+	}
+
+	// Remove the second toast
+	m, _ = m.Update(msgExpired{ID: "2"})
+
+	// Verify we now have 2 toasts
+	if len(m.toasts) != 2 {
+		t.Errorf("Expected 2 toasts after expiry, got %d", len(m.toasts))
+	}
+
+	// Verify the correct toast was removed
+	for _, toast := range m.toasts {
+		if toast.ID == "2" {
+			t.Error("Toast with ID 2 should have been removed but was found")
+		}
+	}
+
+	// Check the remaining toasts are correct
+	foundToast1 := false
+	foundToast3 := false
+
+	for _, toast := range m.toasts {
+		if toast.ID == "1" {
+			foundToast1 = true
+		}
+		if toast.ID == "3" {
+			foundToast3 = true
+		}
+	}
+
+	if !foundToast1 || !foundToast3 {
+		t.Error("Expected to find toast1 and toast3, but one or both were missing")
 	}
 }
